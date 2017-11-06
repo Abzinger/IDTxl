@@ -60,7 +60,7 @@ class DotDict(dict):
     def __setstate__(self, state):
         # For un-pickling the object
         self.update(state)
-        self.__dict__ = self
+        # self.__dict__ = self
 
 
 class Results():

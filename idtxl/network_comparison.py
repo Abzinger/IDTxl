@@ -278,7 +278,7 @@ class NetworkComparison(NetworkAnalysis):
         # Collect targets over all networks
         targets = []
         for nw in networks:
-            k = [i for i in nw.keys()]
+            k = [i for i in nw.targets_analysed]
             try:
                 k.remove('fdr_corrected')
             except ValueError:
@@ -290,7 +290,8 @@ class NetworkComparison(NetworkAnalysis):
         # realisations of variables later on.
         self.union = {}
         self.union['targets'] = targets
-        self.union['max_lag'] = networks[0][targets[0]]['current_value'][1]
+        self.union['max_lag'] = (
+            networks[0].single_target[targets[0]].current_value[1])
 
         # Get the union of sources for each target in the union network.
         for t in targets:
@@ -301,7 +302,7 @@ class NetworkComparison(NetworkAnalysis):
                 # Check if the max_lag is the same for each network going into
                 # the comparison.
                 try:
-                    lag = nw[t]['current_value'][1]
+                    lag = nw.single_target[t].current_value[1]
                     if self.union['max_lag'] != lag:
                         raise ValueError('Networks seem to have been analyzed '
                                          'using different lags.')
@@ -313,13 +314,15 @@ class NetworkComparison(NetworkAnalysis):
                 # before adding them). Use an empty array if no sources were
                 # selected for that target.
                 try:
-                    cond_src = self._lag_to_idx(nw[t]['selected_vars_sources'],
-                                                self.union['max_lag'])
+                    cond_src = self._lag_to_idx(
+                        nw.single_target[t].selected_vars_sources,
+                        self.union['max_lag'])
                 except KeyError:
                     cond_src = []
                 try:
-                    cond_tgt = self._lag_to_idx(nw[t]['selected_vars_target'],
-                                                self.union['max_lag'])
+                    cond_tgt = self._lag_to_idx(
+                        nw.single_target[t]['selected_vars_target'],
+                        self.union['max_lag'])
                 except KeyError:
                     cond_tgt = []
 
