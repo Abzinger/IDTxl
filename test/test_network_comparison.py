@@ -63,7 +63,7 @@ def test_network_comparison_use_cases():
     #                 'data/mute_results_3.p'))
     # res_4 = np.load(os.path.join(os.path.dirname(__file__),
     #                 'data/mute_results_4.p'))
-    path = os.path.dirname(__file__) + 'data/'
+    path = os.path.join(os.path.dirname(__file__), 'data/')
     res_0 = pickle.load(open(path + 'mute_results_0.p', 'rb'))
     res_1 = pickle.load(open(path + 'mute_results_1.p', 'rb'))
     res_2 = pickle.load(open(path + 'mute_results_2.p', 'rb'))
@@ -130,7 +130,7 @@ def test_assertions():
     data.generate_mute_data(100, 5)
 
     # Load previously generated example data
-    path = os.path.dirname(__file__) + 'data/'
+    path = os.path.join(os.path.dirname(__file__), 'data/')
     res_0 = pickle.load(open(path + 'mute_results_0.p', 'rb'))
     res_1 = pickle.load(open(path + 'mute_results_1.p', 'rb'))
     res_2 = pickle.load(open(path + 'mute_results_2.p', 'rb'))
@@ -217,7 +217,7 @@ def test_create_union_network():
     dat2.generate_mute_data(100, 5)
 
     # Load previously generated example data
-    path = os.path.dirname(__file__) + 'data/'
+    path = os.path.join(os.path.dirname(__file__), 'data/')
     res_0 = pickle.load(open(path + 'mute_results_0.p', 'rb'))
     res_1 = pickle.load(open(path + 'mute_results_1.p', 'rb'))
 
@@ -243,7 +243,7 @@ def test_create_union_network():
 
     comp._create_union(res_0, res_1)
     ref_targets = np.array([0, 1, 2])
-    assert (comp.union['targets'] == ref_targets).all(), (
+    assert (comp.union.targets_analysed == ref_targets).all(), (
         'Union does not include all targets.')
     assert np.array([
         True for i in ref_targets if i in comp.union.keys()]).all(), (
@@ -251,8 +251,9 @@ def test_create_union_network():
     assert comp.union['max_lag'] == res_0.single_target[1].current_value[1], (
         'The max. lag was not defined correctly.')
 
-    src_union = comp._idx_to_lag(comp.union[1]['selected_vars_sources'],
-                                 comp.union['max_lag'])
+    src_union = comp._idx_to_lag(
+        comp.union.single_target[1]['selected_vars_sources'],
+        comp.union['max_lag'])
     assert src_union == (src_1 + src_2), (
         'Sources for target 1 were not combined correctly.')
 
@@ -266,7 +267,7 @@ def test_create_union_network():
 def test_get_permuted_replications():
     """Test if permutation of replications works."""
     # Load previously generated example data
-    path = os.path.dirname(__file__) + 'data/'
+    path = os.path.join(os.path.dirname(__file__), 'data/')
     res_0 = pickle.load(open(path + 'mute_results_0.p', 'rb'))
     res_1 = pickle.load(open(path + 'mute_results_1.p', 'rb'))
     comp_settings = {
@@ -354,7 +355,7 @@ def test_calculate_cmi_all_links():
     comp = NetworkComparison()
     comp._initialise(comp_settings)
     comp._create_union(res_0)
-    comp.union[1]['selected_vars_sources'] = [(0, 4)]
+    comp.union.single_target[1]['selected_vars_sources'] = [(0, 4)]
     cmi = comp._calculate_cmi_all_links(data)
     cmi_expected = np.log(1 / (1 - cov ** 2))
     print('correlated Gaussians: TE result {0:.4f} bits; expected to be '
@@ -387,7 +388,7 @@ def test_calculate_mean():
     comp._create_union(res_0)
     cmi = comp._calculate_cmi_all_links(data)
     cmi_mean = comp._calculate_mean([cmi, cmi])
-    for t in comp.union['targets']:
+    for t in comp.union.targets_analysed:
         assert (cmi_mean[t] == cmi[t]).all(), ('Error in mean of CMI for '
                                                'target {0}'.format(t))
 
@@ -397,7 +398,7 @@ def test_p_value_union():
     """Test if the p-value is calculated correctly."""
     data = Data()
     data.generate_mute_data(100, 5)
-    path = os.path.dirname(__file__) + 'data/'
+    path = os.path.join(os.path.dirname(__file__), 'data/')
     res_0 = pickle.load(open(path + 'mute_results_0.p', 'rb'))
     res_1 = pickle.load(open(path + 'mute_results_1.p', 'rb'))
     comp_settings = {
@@ -423,26 +424,30 @@ def test_p_value_union():
     comp._calculate_cmi_diff_within(data, data)
     comp._create_surrogate_distribution_within(data, data)
     target = 1
-    for p in range(comp_settings['n_perm_comp']):
-        comp.cmi_surr[p][target] = np.array([0, 1])
-    comp.cmi_diff[target] = np.array([0.5, 0.5])
+    source = 0
+
+    comp.cmi_surr[target] = np.zeros((1, comp_settings['n_perm_comp']))
+    comp.cmi_diff[target] = np.array([0.5])
     [p, s] = comp._p_value_union()
-    assert (s[target] == np.array([True, False])).all(), (
-                                    'The significance was not determined '
-                                    'correctly: {0}'.format(s[target]))
-    p_1 = 1 / comp_settings['n_perm_comp']
-    p_2 = 1.0
-    print(p[target])
-    assert (p[target] == np.array([p_1, p_2])).all(), (
-                                'The p-value was not calculated correctly: {0}'
-                                .format(p[target]))
+    assert s[target][source], (
+        'The significance was not determined correctly: {0}'.format(s[target]))
+    assert p[target][source] == 1 / comp_settings['n_perm_comp'], (
+        'The p-value was not calculated correctly: {0}'.format(p[target]))
+
+    comp.cmi_surr[target] = np.ones((1, comp_settings['n_perm_comp']))
+    comp.cmi_diff[target] = np.array([0.5])
+    [p, s] = comp._p_value_union()
+    assert not s[target][source], (
+        'The significance was not determined correctly: {0}'.format(s[target]))
+    assert p[target][source] == 1.0, (
+        'The p-value was not calculated correctly: {0}'.format(p[target]))
 
 
 if __name__ == '__main__':
-    test_create_union_network()
-    test_assertions()
     test_network_comparison_use_cases()
     test_p_value_union()
+    test_create_union_network()
+    test_assertions()
     test_calculate_mean()
     test_calculate_cmi_all_links()
     test_get_permuted_replications()
